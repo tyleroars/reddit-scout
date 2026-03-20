@@ -7,7 +7,7 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e8e8e8; min-height: 100vh; padding: 2rem 1rem; }
-  .container { max-width: 800px; margin: 0 auto; }
+  .container { max-width: 820px; margin: 0 auto; }
   .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 12px; }
   .logo { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
   .logo span { color: #FFA23F; }
@@ -18,6 +18,17 @@
   .time-control label { font-size: 13px; color: #aaa; white-space: nowrap; }
   .time-control input[type=range] { flex: 1; min-width: 120px; accent-color: #FFA23F; cursor: pointer; }
   .time-val { font-size: 14px; font-weight: 600; color: #FFA23F; min-width: 80px; text-align: right; white-space: nowrap; }
+
+  /* Filter info panel */
+  .filter-info { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px; padding: 14px 18px; margin-bottom: 1.25rem; }
+  .filter-info-title { font-size: 12px; font-weight: 600; color: #e8e8e8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .filter-col-label { font-size: 11px; font-weight: 600; color: #FFA23F; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .filter-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ftag { font-size: 11px; padding: 2px 7px; border-radius: 4px; }
+  .ftag-green { background: #0f2e1f; color: #4ade80; border: 1px solid #1a4d30; }
+  .ftag-red { background: #2a0f0f; color: #f87171; border: 1px solid #3d1515; }
+
   .stats-row { display: flex; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; }
   .stat { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 80px; }
   .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
@@ -29,11 +40,11 @@
   .open-all-btn { margin-left: auto; background: #FFA23F; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
   .open-all-btn:hover { background: #e8912e; }
   .open-all-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: #666; }
+  .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: #aaa; }
   .select-all-row input { accent-color: #FFA23F; cursor: pointer; width: 15px; height: 15px; }
   .post-list { display: flex; flex-direction: column; gap: 10px; }
-  .post-card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 12px; padding: 14px 16px; transition: border-color 0.15s; }
-  .post-card.selected { border-color: #FFA23F; }
+  .post-card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 12px; padding: 14px 16px; transition: border-color 0.15s; cursor: pointer; }
+  .post-card.selected { border-color: #FFA23F; background: #1f2130; }
   .post-top { display: flex; align-items: flex-start; gap: 10px; }
   .post-check { margin-top: 3px; accent-color: #FFA23F; width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
   .post-title { font-size: 14px; font-weight: 500; color: #f0f0f0; line-height: 1.45; flex: 1; }
@@ -47,19 +58,18 @@
   .dots { display: inline-flex; gap: 3px; align-items: center; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: #2a2d3a; }
   .dot.on { background: #FFA23F; }
-  .post-snippet { font-size: 13px; color: #666; line-height: 1.6; margin-top: 9px; padding-top: 9px; border-top: 1px solid #22253a; }
+  .post-snippet { font-size: 13px; color: #c8c8c8; line-height: 1.6; margin-top: 9px; padding-top: 9px; border-top: 1px solid #22253a; }
   .post-link { display: inline-block; margin-top: 10px; font-size: 12px; color: #b0cfe0; background: #1F3F5422; border: 1px solid #1F3F5466; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background 0.15s; }
   .post-link:hover { background: #1F3F5444; }
   .empty-state { text-align: center; padding: 4rem 1rem; color: #555; }
   .empty-state svg { margin: 0 auto 12px; display: block; }
   .empty-state p { font-size: 14px; line-height: 1.6; }
   .error-msg { background: #2a0f0f; color: #f87171; border: 1px solid #3d1515; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin-bottom: 1rem; }
-  .loading-msg { text-align: center; padding: 3rem 1rem; color: #555; font-size: 14px; }
+  .loading-msg { text-align: center; padding: 3rem 1rem; color: #888; font-size: 14px; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff40; border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .excluded-note { font-size: 12px; color: #444; margin-bottom: 1.25rem; line-height: 1.6; padding: 9px 13px; border: 1px solid #22253a; border-radius: 8px; }
-  .excluded-note strong { color: #666; }
   .opening-msg { font-size: 12px; color: #FFA23F; margin-left: 8px; }
+  @media (max-width: 520px) { .filter-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -82,8 +92,41 @@
     <div class="time-val" id="timeVal">24 hours</div>
   </div>
 
-  <div class="excluded-note">
-    <strong>Auto-excluded:</strong> India, Southeast Asia, East Asia, Middle East. Rant/vent posts, low-effort posts (under 3 sentences), workplace toxicity, manager drama, burnout, and mental health posts.
+  <div class="filter-info">
+    <div class="filter-info-title">How posts are filtered</div>
+    <div class="filter-grid">
+      <div>
+        <div class="filter-col-label">Letting through</div>
+        <div class="filter-tags">
+          <span class="ftag ftag-green">US / Canada / UK / Australia</span>
+          <span class="ftag ftag-green">Students &amp; undergrads</span>
+          <span class="ftag ftag-green">High schoolers pre-college</span>
+          <span class="ftag ftag-green">New &amp; recent grads</span>
+          <span class="ftag ftag-green">Career pivoters</span>
+          <span class="ftag ftag-green">Feeling lost or stuck</span>
+          <span class="ftag ftag-green">Bachelor's / Master's / Associates</span>
+          <span class="ftag ftag-green">Community college / bootcamp</span>
+          <span class="ftag ftag-green">Ages 16–30 (when stated)</span>
+          <span class="ftag ftag-green">Job searching / no experience</span>
+        </div>
+      </div>
+      <div>
+        <div class="filter-col-label">Auto-excluded</div>
+        <div class="filter-tags">
+          <span class="ftag ftag-red">India / SE Asia / East Asia / Middle East</span>
+          <span class="ftag ftag-red">"In my country" posts</span>
+          <span class="ftag ftag-red">Job offer comparisons</span>
+          <span class="ftag ftag-red">Director / VP / exec level</span>
+          <span class="ftag ftag-red">PIP / HR / legal issues</span>
+          <span class="ftag ftag-red">Toxic manager / workplace drama</span>
+          <span class="ftag ftag-red">Burnout / mental health</span>
+          <span class="ftag ftag-red">Rant &amp; vent posts</span>
+          <span class="ftag ftag-red">Resume critique requests</span>
+          <span class="ftag ftag-red">Coaching / service promo posts</span>
+          <span class="ftag ftag-red">Low-effort / 1-sentence posts</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="errorMsg" class="error-msg" style="display:none"></div>
@@ -139,56 +182,42 @@
 
 </div>
 <script>
-
-// ── ICP match signals ─────────────────────────────────────────────────────────
-// NOTE: "junior" and "senior" removed — too many false positives with job titles
-// Age signals use explicit patterns only
 const ICP_SIGNALS = {
   age: [
-    // Reddit age formats: 22F, 22M — matched via regex below
-    // Explicit age phrases:
     "i'm 16","i'm 17","i'm 18","i'm 19","i'm 20","i'm 21","i'm 22","i'm 23","i'm 24","i'm 25","i'm 26","i'm 27","i'm 28","i'm 29","i'm 30",
     "im 16","im 17","im 18","im 19","im 20","im 21","im 22","im 23","im 24","im 25","im 26","im 27","im 28","im 29","im 30",
     "i am 16","i am 17","i am 18","i am 19","i am 20","i am 21","i am 22","i am 23","i am 24","i am 25","i am 26","i am 27","i am 28","i am 29","i am 30",
     "16 year old","17 year old","18 year old","19 year old","20 year old","21 year old","22 year old","23 year old","24 year old","25 year old","26 year old","27 year old","28 year old","29 year old","30 year old",
     "turning 20","turning 21","turning 22","turning 23","turning 24","turning 25","turning 26","turning 27","turning 28","turning 29","turning 30",
     "sophomore","freshman","undergraduate","undergrad",
-    // High school signals — pre-college ICP
     "high school","highschool","in high school","senior in high school","junior in high school",
-    "graduating high school","about to graduate high school","just graduated high school",
-    "after high school","when i graduate high school","hs senior","hs junior",
+    "graduating high school","just graduated high school","after high school","hs senior","hs junior",
     "applying to college","applying to university","college applications","choosing a college",
     "what college","which college","should i go to college","thinking about college",
     "planning to go to college","want to go to college","deciding on a major"
   ],
   education: [
-    // Currently in college/university
     "in college","starting college","going to college","left college","back to college",
     "returning to college","college student","at university","in university",
     "starting university","going to university","university student",
-    // Degree types — broad matching
     "bachelor's","bachelors","bachelor of","bs in","ba in","b.s.","b.a.",
     "master's","masters","master of","ms in","ma in","m.s.","m.a.",
     "associate's","associates degree","associate degree","associate of",
     "my degree","a degree in","get a degree","finish my degree","complete my degree",
     "have a degree","got my degree","earned my degree","with my degree",
-    // Major / field of study
     "my major","change my major","undecided major","switching majors","declared my major",
     "majoring in","double major","studying nursing","studying finance","studying business",
     "studying engineering","studying cs","studying computer science","studying marketing",
     "what to major in","what should i major","which major","picking a major",
     "what to study","what should i study","which degree","what degree",
-    // Community college / night school / non-traditional
     "community college","cc student","going to cc","at cc","enrolled at cc",
     "night school","night classes","taking classes at night","evening classes",
     "online courses","taking online classes","going back to school",
     "vocational","trade school","certificate program","coding bootcamp","bootcamp",
-    // Academic life signals
     "graduate school","grad school","transfer student","transferring",
     "my gpa","gpa is","semester","on campus","off campus","dropped out","drop out",
     "student loans","tuition","scholarship","financial aid","fafsa",
     "internship","my internship","summer internship","co-op",
-    // Career path exploration (pre/early college ICP)
     "what career","which career","what field","career in nursing","career in finance",
     "career in medicine","career in tech","career in business","career in law",
     "is nursing worth it","is finance worth it","is cs worth it",
@@ -223,16 +252,29 @@ const ICP_SIGNALS = {
     "paralyzed by","can't decide","can't choose","struggling to decide"
   ],
   geo_positive: [
+    // US — most important
     "in the us","in the usa","in america","united states","based in the us",
-    "in canada","based in canada","ontario","british columbia","alberta","toronto","vancouver",
-    "in the uk","in england","in britain","united kingdom","based in the uk","london","manchester","scotland",
-    "in australia","based in australia","sydney","melbourne","brisbane"
+    "based in the usa","living in the us","living in america","i live in the us",
+    "i'm in the us","im in the us","i am in the us",
+    "new york","california","texas","florida","illinois","ohio","georgia",
+    "north carolina","michigan","new jersey","washington state","arizona","colorado",
+    "oregon","minnesota","wisconsin","maryland","virginia","pennsylvania",
+    // Canada
+    "in canada","based in canada","living in canada","ontario","british columbia",
+    "alberta","toronto","vancouver","calgary","ottawa","montreal",
+    // UK
+    "in the uk","in england","in britain","united kingdom","based in the uk",
+    "london","manchester","scotland","wales","birmingham",
+    // Australia
+    "in australia","based in australia","sydney","melbourne","brisbane","perth"
   ]
 };
 
-// ── Hard exclude: geography ───────────────────────────────────────────────────
 const GEO_EXCLUDE = [
-  // India — cities, institutions, exams, salary, companies
+  // Non-US generic signal
+  "in my country","in our country","back in my country","here in my country",
+  "my country doesn't","our country doesn't","in this country we",
+  // India
   "india","indian","delhi","mumbai","bangalore","bengaluru","hyderabad","chennai","kolkata",
   "pune","ahmedabad","jaipur","lucknow","chandigarh","noida","gurugram","gurgaon",
   " iit ","iit-","iim ","iim-"," nit ","nit-","btech","b.tech","mtech","m.tech",
@@ -263,52 +305,70 @@ const GEO_EXCLUDE = [
   "egypt","cairo",
   " turkey ","turkish lira","istanbul",
   "iran","iranian","iraq","baghdad",
-  // Africa (not primary market)
+  // Africa
   "nigeria","nigerian","ghana","kenya","nairobi","south africa","johannesburg",
   // Currency catch-alls
   "rupees","taka ","peso ","ringgit","baht ","yuan ","yen ","won ","shekel"
 ];
 
-// ── Hard exclude: off-topic content ──────────────────────────────────────────
 const TOPIC_EXCLUDE = [
-  // Rant / vent posts
-  "just needed to vent","needed to rant","just venting","just ranting",
-  "rant incoming","rant warning","long rant","rant post",
-  "i hate my","so frustrated with","i'm so angry","i am so angry",
-  "does anyone else hate","this is a rant",
-  // Workplace toxicity / manager drama
+  // Job offer / multiple offers comparisons — NOT our lane
+  "which offer","which job offer","two offers","two job offers","comparing offers",
+  "offer from","offers on the table","accept the offer","decline the offer",
+  "job a or job b","company a or company b","should i take this offer",
+  "boeing or","siemens or","google or","amazon or","microsoft or","apple or",
+  "which company should i","which position should i take","which role should i take",
+  "which internship should i","internship offer from","internship at",
+  // Seniority — director, VP, exec level
+  "finance director","marketing director","sales director","engineering director",
+  " director role"," director position"," director job",
+  "vice president","vp of","vp role","vp position",
+  "chief of","c-suite","cto","cfo","coo","cmo","chro",
+  "executive director","managing director","head of department",
+  "20 years experience","15 years experience","senior director",
+  // PIP / HR / legal
+  "put on a pip","placed on a pip","performance improvement plan",
+  "hr complaint","file a complaint","wrongful termination",
+  "sue my employer","labor board","workplace harassment","sexual harassment",
+  "constructive dismissal",
+  // Toxic workplace / manager drama
   "toxic manager","toxic boss","toxic workplace","toxic coworker","toxic work",
   "abusive manager","abusive boss","hostile work environment",
   "workplace bullying","bully at work",
-  "my manager keeps","my boss keeps","hate my manager","hate my boss",
-  "terrible manager","terrible boss","awful manager","awful boss",
-  "micromanag",
-  // Burnout + mental health (not our lane)
+  "hate my manager","hate my boss","terrible manager","terrible boss",
+  "awful manager","awful boss","micromanag",
+  // Burnout + mental health
   "burnout","burnt out","burned out",
   "clinical depression","on antidepressants","antidepressant",
   "suicidal","self harm","self-harm","panic attack",
   "breakdown at work","my therapist said","seeing a therapist","in therapy for",
-  // HR / legal
-  "hr complaint","file a complaint","wrongful termination",
-  "sue my employer","labor board","workplace harassment","sexual harassment",
+  // Rant / vent
+  "just needed to vent","needed to rant","just venting","just ranting",
+  "rant incoming","rant warning","long rant","rant post",
+  "i hate my","so frustrated with","does anyone else hate","this is a rant",
+  // Resume / LinkedIn critique posts (not decision-layer content)
+  "review my resume","roast my resume","rate my resume","critique my resume",
+  "review my linkedin","rate my linkedin","fix my resume",
+  "biggest resume mistake","resume tip","resume advice for",
+  // Coaching / service promo
+  "i am a career coach","i'm a career coach","as a career coach",
+  "i offer","my services","book a call","schedule a call","dm me for",
+  "check out my","link in bio","i can help you for",
   // Late career / retirement
   "retirement","retiring early","401k","pension fund",
   "20 years of experience","30 years of experience",
   "40 years old","45 years old","50 years old","55 years old","60 years old",
-  "40-year-old","45-year-old","50-year-old"
+  // Off-topic lifestyle / curiosity posts
+  "nepo baby","nepo babies","how do people afford","condo living",
+  "recruiter network","maintain my network","networking with recruiters",
 ];
 
-// ── Low-effort / low-quality post detection ───────────────────────────────────
 function isLowEffort(post) {
   const body = (post.selftext || '').trim();
-  // No body at all (link posts or empty)
   if (!body || body === '[deleted]' || body === '[removed]') {
-    // Title-only is ok IF title is a real question (long enough)
     return (post.title || '').length < 60;
   }
-  // Too short — under ~120 chars is basically one sentence
   if (body.length < 120) return true;
-  // Count rough sentences by punctuation
   const sentences = body.split(/[.!?]+/).filter(s => s.trim().length > 10);
   if (sentences.length < 2) return true;
   return false;
@@ -326,12 +386,8 @@ function updateTimeLabel() {
 
 function isExcluded(post) {
   const text = (' ' + (post.title || '') + ' ' + (post.selftext || '') + ' ').toLowerCase();
-  for (const term of GEO_EXCLUDE) {
-    if (text.includes(term)) return true;
-  }
-  for (const term of TOPIC_EXCLUDE) {
-    if (text.includes(term)) return true;
-  }
+  for (const term of GEO_EXCLUDE) { if (text.includes(term)) return true; }
+  for (const term of TOPIC_EXCLUDE) { if (text.includes(term)) return true; }
   if (isLowEffort(post)) return true;
   return false;
 }
@@ -340,23 +396,14 @@ function scorePost(post) {
   const text = (' ' + (post.title || '') + ' ' + (post.selftext || '') + ' ').toLowerCase();
   let score = 0;
   const signals = [];
-
   for (const [cat, words] of Object.entries(ICP_SIGNALS)) {
     for (const w of words) {
-      if (text.includes(w)) {
-        score++;
-        if (!signals.includes(cat)) signals.push(cat);
-        break;
-      }
+      if (text.includes(w)) { score++; if (!signals.includes(cat)) signals.push(cat); break; }
     }
   }
-
-  // Reddit age formats: 22F, 24M, 23NB — must be at start of post or standalone
   if (/\b(1[6-9]|2[0-9]|30)\s*[fmFM]\b/.test(post.title + ' ' + (post.selftext || ''))) {
-    score++;
-    if (!signals.includes('age')) signals.push('age');
+    score++; if (!signals.includes('age')) signals.push('age');
   }
-
   return { score, signals };
 }
 
@@ -403,17 +450,10 @@ async function fetchPosts() {
     excludedCount = 0;
 
     allPosts = posts
-      .filter(p => {
-        if (isExcluded(p)) { excludedCount++; return false; }
-        return true;
-      })
-      .map(p => {
-        const { score, signals } = scorePost(p);
-        return { ...p, icpScore: score, icpSignals: signals };
-      })
+      .filter(p => { if (isExcluded(p)) { excludedCount++; return false; } return true; })
+      .map(p => { const { score, signals } = scorePost(p); return { ...p, icpScore: score, icpSignals: signals }; })
       .filter(p => p.icpScore >= 1);
 
-    // Always newest first
     allPosts.sort((a, b) => b.created_utc - a.created_utc);
 
     const hLabel = hours === 1 ? 'last 1h' : 'last ' + hours + 'h';
@@ -453,9 +493,9 @@ function renderPosts() {
     const dots = [1,2,3,4,5].map(i => `<span class="dot${p.icpScore >= i ? ' on' : ''}"></span>`).join('');
     const redditUrl = 'https://reddit.com' + p.permalink;
 
-    return `<div class="post-card${checked ? ' selected' : ''}" id="card-${p.id}">
+    return `<div class="post-card${checked ? ' selected' : ''}" id="card-${p.id}" onclick="cardClick(event,'${esc(p.id)}')">
       <div class="post-top">
-        <input type="checkbox" class="post-check" ${checked ? 'checked' : ''} onchange="toggleSelect('${esc(p.id)}', this.checked)">
+        <input type="checkbox" class="post-check" id="chk-${esc(p.id)}" ${checked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleSelect('${esc(p.id)}', this.checked)">
         <div style="flex:1">
           <div class="post-title">${esc(p.title)}</div>
           <div class="post-meta">
@@ -469,25 +509,40 @@ function renderPosts() {
         </div>
       </div>
       ${snippet ? `<div class="post-snippet">${esc(snippet)}</div>` : ''}
-      <a class="post-link" href="${esc(redditUrl)}" target="_blank" rel="noopener">Open post &rarr;</a>
+      <a class="post-link" href="${esc(redditUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Open post &rarr;</a>
     </div>`;
   }).join('');
 
   updateCount();
 }
 
+// Clicking anywhere on the card toggles selection
+function cardClick(event, id) {
+  const chk = document.getElementById('chk-' + id);
+  if (!chk) return;
+  const newState = !chk.checked;
+  chk.checked = newState;
+  toggleSelect(id, newState);
+}
+
 function toggleSelect(id, checked) {
   if (checked) selectedIds.add(id);
   else selectedIds.delete(id);
-  document.getElementById('card-' + id)?.classList.toggle('selected', checked);
+  const card = document.getElementById('card-' + id);
+  if (card) card.classList.toggle('selected', checked);
+  // Keep select-all checkbox in sync
+  const allChecked = currentFiltered.length > 0 && currentFiltered.every(p => selectedIds.has(p.id));
+  document.getElementById('selectAll').checked = allChecked;
   updateCount();
 }
 
 function toggleSelectAll(checked) {
   currentFiltered.forEach(p => {
-    if (checked) selectedIds.add(p.id);
-    else selectedIds.delete(p.id);
-    document.getElementById('card-' + p.id)?.classList.toggle('selected', checked);
+    selectedIds[checked ? 'add' : 'delete'](p.id);
+    const card = document.getElementById('card-' + p.id);
+    if (card) card.classList.toggle('selected', checked);
+    const chk = document.getElementById('chk-' + p.id);
+    if (chk) chk.checked = checked;
   });
   updateCount();
 }
@@ -497,7 +552,7 @@ function updateCount() {
   document.getElementById('openAllBtn').disabled = selectedIds.size === 0;
 }
 
-// Open tabs with a staggered delay so browsers don't block them as a popup attack
+// Staggered tab opening — browsers block rapid window.open() loops
 async function openSelected() {
   const toOpen = currentFiltered.filter(p => selectedIds.has(p.id));
   if (!toOpen.length) return;
@@ -510,9 +565,8 @@ async function openSelected() {
   for (let i = 0; i < toOpen.length; i++) {
     msg.textContent = `Opening ${i + 1} of ${toOpen.length}...`;
     window.open('https://reddit.com' + toOpen[i].permalink, '_blank');
-    // 400ms gap between tabs — enough for browsers to allow each one
     if (i < toOpen.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
