@@ -59,8 +59,13 @@
   .dot { width: 7px; height: 7px; border-radius: 50%; background: #2a2d3a; }
   .dot.on { background: #FFA23F; }
   .post-snippet { font-size: 13px; color: #c8c8c8; line-height: 1.6; margin-top: 9px; padding-top: 9px; border-top: 1px solid #22253a; }
-  .hl { background: #3a2e0a; color: #fbbf24; font-weight: 700; border-radius: 3px; padding: 0 2px; }
+  .hl { font-weight: 700; color: #ffffff; border-bottom: 1.5px solid #FFA23F; }
   .last-fetched { font-size: 12px; color: #555; margin-bottom: 1.25rem; text-align: right; }
+  .grade { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .grade-a { background: #0f2e1f; color: #4ade80; border: 1px solid #1a4d30; }
+  .grade-b { background: #0f1f35; color: #60a5fa; border: 1px solid #1a3050; }
+  .grade-c { background: #2a1f0a; color: #fbbf24; border: 1px solid #3d2e0f; }
+  .grade-d { background: #22202a; color: #a78bfa; border: 1px solid #3a3050; }
   .post-link { display: inline-block; margin-top: 10px; font-size: 12px; color: #b0cfe0; background: #1F3F5422; border: 1px solid #1F3F5466; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background 0.15s; }
   .post-link:hover { background: #1F3F5444; }
   .empty-state { text-align: center; padding: 4rem 1rem; color: #555; }
@@ -540,6 +545,32 @@ async function fetchPosts() {
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8V5M2 8H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Refresh';
 }
 
+function gradePost(post) {
+  // Grade is based on: signal count, signal diversity, geo match, body length/substance
+  const score = post.icpScore || 0;
+  const signals = post.icpSignals || [];
+  const hasGeo = signals.includes('geo_positive');
+  const hasAge = signals.includes('age');
+  const hasEdu = signals.includes('education');
+  const hasStruggle = signals.includes('struggle');
+  const hasPivot = signals.includes('pivot');
+  const hasEarly = signals.includes('career_early');
+  const bodyLen = (post.selftext || '').length;
+
+  let points = 0;
+  points += Math.min(score, 5) * 10;           // up to 50 pts for signal count
+  points += hasGeo ? 15 : 0;                    // US/CA/UK is high priority
+  points += (hasAge || hasEdu) ? 10 : 0;        // student/grad confirmed
+  points += (hasStruggle || hasPivot) ? 10 : 0; // decision-layer content
+  points += hasEarly ? 8 : 0;                   // actively job searching
+  points += bodyLen > 400 ? 7 : bodyLen > 200 ? 4 : 0; // substantive post
+
+  if (points >= 70) return { label: 'A', cls: 'grade-a' };
+  if (points >= 50) return { label: 'B', cls: 'grade-b' };
+  if (points >= 30) return { label: 'C', cls: 'grade-c' };
+  return { label: 'D', cls: 'grade-d' };
+}
+
 function renderPosts() {
   const minScore = parseInt(document.getElementById('minScore').value);
   currentFiltered = allPosts.filter(p => p.icpScore >= minScore);
@@ -557,6 +588,7 @@ function renderPosts() {
     const redditUrl = 'https://reddit.com' + p.permalink;
     const titleHtml = highlightSignals(p.title || '');
     const snippetHtml = highlightSignals(snippet);
+    const grade = gradePost(p);
 
     return `<div class="post-card${checked ? ' selected' : ''}" id="card-${p.id}" onclick="cardClick(event,'${esc(p.id)}')">
       <div class="post-top">
@@ -564,6 +596,7 @@ function renderPosts() {
         <div style="flex:1">
           <div class="post-title">${titleHtml}</div>
           <div class="post-meta">
+            <span class="grade ${grade.cls}">${grade.label}</span>
             <span class="dots">${dots}</span>
             <span class="badge badge-score">${p.icpScore} signal${p.icpScore !== 1 ? 's' : ''}</span>
             <span class="badge badge-time">${timeAgo(p.created_utc)}</span>
@@ -617,14 +650,21 @@ function updateCount() {
   document.getElementById('openAllBtn').disabled = selectedIds.size === 0;
 }
 
-// Synchronous tab opening — must NOT use async/await or setTimeout before window.open()
-// Any delay breaks the browser's trusted-click context and blocks popups
+// Chrome blocks window.open() loops even synchronously on hosted pages.
+// The only reliable fix: create real <a> elements and call .click() on them.
+// Chrome treats anchor clicks as user-initiated navigation and allows them.
 function openSelected() {
   const toOpen = currentFiltered.filter(p => selectedIds.has(p.id));
   if (!toOpen.length) return;
 
   toOpen.forEach(p => {
-    window.open('https://reddit.com' + p.permalink, '_blank');
+    const a = document.createElement('a');
+    a.href = 'https://reddit.com' + p.permalink;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   });
 
   const msg = document.getElementById('openingMsg');
