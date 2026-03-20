@@ -61,11 +61,6 @@
   .post-snippet { font-size: 13px; color: #c8c8c8; line-height: 1.6; margin-top: 9px; padding-top: 9px; border-top: 1px solid #22253a; }
   .hl { font-weight: 700; color: #ffffff; border-bottom: 1.5px solid #FFA23F; }
   .last-fetched { font-size: 12px; color: #555; margin-bottom: 1.25rem; text-align: right; }
-  .grade { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
-  .grade-a { background: #0f2e1f; color: #4ade80; border: 1px solid #1a4d30; }
-  .grade-b { background: #0f1f35; color: #60a5fa; border: 1px solid #1a3050; }
-  .grade-c { background: #2a1f0a; color: #fbbf24; border: 1px solid #3d2e0f; }
-  .grade-d { background: #22202a; color: #a78bfa; border: 1px solid #3a3050; }
   .post-link { display: inline-block; margin-top: 10px; font-size: 12px; color: #b0cfe0; background: #1F3F5422; border: 1px solid #1F3F5466; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background 0.15s; }
   .post-link:hover { background: #1F3F5444; }
   .empty-state { text-align: center; padding: 4rem 1rem; color: #555; }
@@ -76,6 +71,10 @@
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff40; border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .opening-msg { font-size: 12px; color: #FFA23F; margin-left: 8px; }
+  .range-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .range-filter label { font-size: 13px; color: #aaa; white-space: nowrap; }
+  .range-filter input[type=range] { accent-color: #FFA23F; cursor: pointer; width: 120px; }
+  .range-val { font-size: 13px; font-weight: 600; color: #FFA23F; min-width: 90px; white-space: nowrap; }
   @media (max-width: 520px) { .filter-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -164,11 +163,13 @@
 
   <div id="filterBar" style="display:none">
     <div class="filter-bar">
-      <select id="minScore" onchange="renderPosts()">
-        <option value="1">Min: any signal</option>
-        <option value="2">Min: 2+ signals</option>
-        <option value="3">Min: 3+ signals</option>
-      </select>
+      <div class="range-filter">
+        <label>Signals:</label>
+        <input type="range" id="minSig" min="1" max="5" value="1" step="1" oninput="updateRangeLabel()">
+        <span>to</span>
+        <input type="range" id="maxSig" min="1" max="5" value="5" step="1" oninput="updateRangeLabel()">
+        <span class="range-val" id="rangeVal">1 – 5</span>
+      </div>
       <button class="open-all-btn" id="openAllBtn" onclick="openSelected()" disabled>Open selected in tabs</button>
       <span class="opening-msg" id="openingMsg" style="display:none"></span>
     </div>
@@ -545,35 +546,23 @@ async function fetchPosts() {
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8V5M2 8H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Refresh';
 }
 
-function gradePost(post) {
-  // Grade is based on: signal count, signal diversity, geo match, body length/substance
-  const score = post.icpScore || 0;
-  const signals = post.icpSignals || [];
-  const hasGeo = signals.includes('geo_positive');
-  const hasAge = signals.includes('age');
-  const hasEdu = signals.includes('education');
-  const hasStruggle = signals.includes('struggle');
-  const hasPivot = signals.includes('pivot');
-  const hasEarly = signals.includes('career_early');
-  const bodyLen = (post.selftext || '').length;
-
-  let points = 0;
-  points += Math.min(score, 5) * 10;           // up to 50 pts for signal count
-  points += hasGeo ? 15 : 0;                    // US/CA/UK is high priority
-  points += (hasAge || hasEdu) ? 10 : 0;        // student/grad confirmed
-  points += (hasStruggle || hasPivot) ? 10 : 0; // decision-layer content
-  points += hasEarly ? 8 : 0;                   // actively job searching
-  points += bodyLen > 400 ? 7 : bodyLen > 200 ? 4 : 0; // substantive post
-
-  if (points >= 70) return { label: 'A', cls: 'grade-a' };
-  if (points >= 50) return { label: 'B', cls: 'grade-b' };
-  if (points >= 30) return { label: 'C', cls: 'grade-c' };
-  return { label: 'D', cls: 'grade-d' };
+function updateRangeLabel() {
+  let min = parseInt(document.getElementById('minSig').value);
+  let max = parseInt(document.getElementById('maxSig').value);
+  if (min > max) {
+    const active = document.activeElement ? document.activeElement.id : '';
+    if (active === 'minSig') { max = min; document.getElementById('maxSig').value = max; }
+    else { min = max; document.getElementById('minSig').value = min; }
+  }
+  const maxLabel = max >= 5 ? '5+' : String(max);
+  document.getElementById('rangeVal').textContent = min + ' \u2013 ' + maxLabel;
+  renderPosts();
 }
 
 function renderPosts() {
-  const minScore = parseInt(document.getElementById('minScore').value);
-  currentFiltered = allPosts.filter(p => p.icpScore >= minScore);
+  const min = parseInt(document.getElementById('minSig').value);
+  const max = parseInt(document.getElementById('maxSig').value);
+  currentFiltered = allPosts.filter(p => p.icpScore >= min && (max >= 5 || p.icpScore <= max));
 
   const list = document.getElementById('postList');
   if (!currentFiltered.length) {
@@ -583,12 +572,11 @@ function renderPosts() {
 
   list.innerHTML = currentFiltered.map(p => {
     const checked = selectedIds.has(p.id);
-    const snippet = (p.selftext || '').trim().slice(0, 220) + ((p.selftext || '').length > 220 ? '...' : '');
+    const snippet = (p.selftext || '').trim().slice(0, 400) + ((p.selftext || '').length > 400 ? '...' : '');
     const dots = [1,2,3,4,5].map(i => `<span class="dot${p.icpScore >= i ? ' on' : ''}"></span>`).join('');
     const redditUrl = 'https://reddit.com' + p.permalink;
     const titleHtml = highlightSignals(p.title || '');
     const snippetHtml = highlightSignals(snippet);
-    const grade = gradePost(p);
 
     return `<div class="post-card${checked ? ' selected' : ''}" id="card-${p.id}" onclick="cardClick(event,'${esc(p.id)}')">
       <div class="post-top">
@@ -596,7 +584,6 @@ function renderPosts() {
         <div style="flex:1">
           <div class="post-title">${titleHtml}</div>
           <div class="post-meta">
-            <span class="grade ${grade.cls}">${grade.label}</span>
             <span class="dots">${dots}</span>
             <span class="badge badge-score">${p.icpScore} signal${p.icpScore !== 1 ? 's' : ''}</span>
             <span class="badge badge-time">${timeAgo(p.created_utc)}</span>
