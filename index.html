@@ -71,10 +71,11 @@
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff40; border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .opening-msg { font-size: 12px; color: #FFA23F; margin-left: 8px; }
-  .range-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .range-filter label { font-size: 13px; color: #aaa; white-space: nowrap; }
-  .range-filter input[type=range] { accent-color: #FFA23F; cursor: pointer; width: 120px; }
-  .range-val { font-size: 13px; font-weight: 600; color: #FFA23F; min-width: 90px; white-space: nowrap; }
+  .signal-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .signal-pills label { font-size: 13px; color: #aaa; margin-right: 4px; }
+  .pill { padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #2a2d3a; background: #1a1d27; color: #555; transition: all 0.15s; user-select: none; }
+  .pill:hover { border-color: #FFA23F55; color: #aaa; }
+  .pill.active { background: #FFA23F18; border-color: #FFA23F; color: #FFA23F; }
   @media (max-width: 520px) { .filter-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -163,12 +164,13 @@
 
   <div id="filterBar" style="display:none">
     <div class="filter-bar">
-      <div class="range-filter">
+      <div class="signal-pills">
         <label>Signals:</label>
-        <input type="range" id="minSig" min="1" max="5" value="1" step="1" oninput="updateRangeLabel()">
-        <span>to</span>
-        <input type="range" id="maxSig" min="1" max="5" value="5" step="1" oninput="updateRangeLabel()">
-        <span class="range-val" id="rangeVal">1 – 5</span>
+        <span class="pill active" data-sig="1" onclick="togglePill(this)">1</span>
+        <span class="pill active" data-sig="2" onclick="togglePill(this)">2</span>
+        <span class="pill active" data-sig="3" onclick="togglePill(this)">3</span>
+        <span class="pill active" data-sig="4" onclick="togglePill(this)">4</span>
+        <span class="pill active" data-sig="5" onclick="togglePill(this)">5+</span>
       </div>
       <button class="open-all-btn" id="openAllBtn" onclick="openSelected()" disabled>Open selected in tabs</button>
       <span class="opening-msg" id="openingMsg" style="display:none"></span>
@@ -546,23 +548,25 @@ async function fetchPosts() {
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8V5M2 8H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Refresh';
 }
 
-function updateRangeLabel() {
-  let min = parseInt(document.getElementById('minSig').value);
-  let max = parseInt(document.getElementById('maxSig').value);
-  if (min > max) {
-    const active = document.activeElement ? document.activeElement.id : '';
-    if (active === 'minSig') { max = min; document.getElementById('maxSig').value = max; }
-    else { min = max; document.getElementById('minSig').value = min; }
-  }
-  const maxLabel = max >= 5 ? '5+' : String(max);
-  document.getElementById('rangeVal').textContent = min + ' \u2013 ' + maxLabel;
+function togglePill(el) {
+  // Always keep at least one pill active
+  const allPills = document.querySelectorAll('.pill');
+  const activePills = document.querySelectorAll('.pill.active');
+  if (el.classList.contains('active') && activePills.length === 1) return;
+  el.classList.toggle('active');
   renderPosts();
 }
 
+function getActiveSigs() {
+  return Array.from(document.querySelectorAll('.pill.active')).map(p => parseInt(p.dataset.sig));
+}
+
 function renderPosts() {
-  const min = parseInt(document.getElementById('minSig').value);
-  const max = parseInt(document.getElementById('maxSig').value);
-  currentFiltered = allPosts.filter(p => p.icpScore >= min && (max >= 5 || p.icpScore <= max));
+  const active = getActiveSigs();
+  currentFiltered = allPosts.filter(p => {
+    const s = p.icpScore;
+    return active.some(a => a === 5 ? s >= 5 : s === a);
+  });
 
   const list = document.getElementById('postList');
   if (!currentFiltered.length) {
