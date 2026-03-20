@@ -59,6 +59,8 @@
   .dot { width: 7px; height: 7px; border-radius: 50%; background: #2a2d3a; }
   .dot.on { background: #FFA23F; }
   .post-snippet { font-size: 13px; color: #c8c8c8; line-height: 1.6; margin-top: 9px; padding-top: 9px; border-top: 1px solid #22253a; }
+  .hl { background: #3a2e0a; color: #fbbf24; font-weight: 700; border-radius: 3px; padding: 0 2px; }
+  .last-fetched { font-size: 12px; color: #555; margin-bottom: 1.25rem; text-align: right; }
   .post-link { display: inline-block; margin-top: 10px; font-size: 12px; color: #b0cfe0; background: #1F3F5422; border: 1px solid #1F3F5466; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background 0.15s; }
   .post-link:hover { background: #1F3F5444; }
   .empty-state { text-align: center; padding: 4rem 1rem; color: #555; }
@@ -129,6 +131,7 @@
     </div>
   </div>
 
+  <div id="lastFetched" class="last-fetched" style="display:none"></div>
   <div id="errorMsg" class="error-msg" style="display:none"></div>
 
   <div class="stats-row" id="statsRow" style="display:none">
@@ -392,6 +395,57 @@ function isExcluded(post) {
   return false;
 }
 
+// Build a flat list of all signal keywords for highlighting
+function getAllSignalWords() {
+  const words = [];
+  for (const list of Object.values(ICP_SIGNALS)) {
+    for (const w of list) words.push(w.trim());
+  }
+  // Sort longest first so longer phrases match before substrings
+  return words.sort((a, b) => b.length - a.length);
+}
+const ALL_SIGNAL_WORDS = getAllSignalWords();
+
+// Highlight matched signal keywords in a plain text string
+function highlightSignals(text) {
+  if (!text) return '';
+  // Escape HTML first
+  let safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lower = safe.toLowerCase();
+  // Track which character positions are already highlighted to avoid double-wrapping
+  const marked = new Uint8Array(safe.length);
+  const replacements = [];
+
+  for (const word of ALL_SIGNAL_WORDS) {
+    const w = word.toLowerCase();
+    let idx = 0;
+    while ((idx = lower.indexOf(w, idx)) !== -1) {
+      // Check none of these chars are already marked
+      let overlap = false;
+      for (let i = idx; i < idx + w.length; i++) { if (marked[i]) { overlap = true; break; } }
+      if (!overlap) {
+        replacements.push({ start: idx, end: idx + w.length });
+        for (let i = idx; i < idx + w.length; i++) marked[i] = 1;
+      }
+      idx += w.length;
+    }
+  }
+
+  if (!replacements.length) return safe;
+
+  // Sort by position and rebuild string with highlight spans
+  replacements.sort((a, b) => a.start - b.start);
+  let result = '';
+  let cursor = 0;
+  for (const { start, end } of replacements) {
+    result += safe.slice(cursor, start);
+    result += '<span class="hl">' + safe.slice(start, end) + '</span>';
+    cursor = end;
+  }
+  result += safe.slice(cursor);
+  return result;
+}
+
 function scorePost(post) {
   const text = (' ' + (post.title || '') + ' ' + (post.selftext || '') + ' ').toLowerCase();
   let score = 0;
@@ -465,6 +519,15 @@ async function fetchPosts() {
     document.getElementById('filterBar').style.display = 'block';
     selectedIds.clear();
     document.getElementById('selectAll').checked = false;
+
+    // Last fetched timestamp
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    const lf = document.getElementById('lastFetched');
+    lf.textContent = 'Last fetched: ' + dateStr + ' at ' + timeStr;
+    lf.style.display = 'block';
+
     renderPosts();
 
   } catch (e) {
@@ -492,12 +555,14 @@ function renderPosts() {
     const snippet = (p.selftext || '').trim().slice(0, 220) + ((p.selftext || '').length > 220 ? '...' : '');
     const dots = [1,2,3,4,5].map(i => `<span class="dot${p.icpScore >= i ? ' on' : ''}"></span>`).join('');
     const redditUrl = 'https://reddit.com' + p.permalink;
+    const titleHtml = highlightSignals(p.title || '');
+    const snippetHtml = highlightSignals(snippet);
 
     return `<div class="post-card${checked ? ' selected' : ''}" id="card-${p.id}" onclick="cardClick(event,'${esc(p.id)}')">
       <div class="post-top">
         <input type="checkbox" class="post-check" id="chk-${esc(p.id)}" ${checked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleSelect('${esc(p.id)}', this.checked)">
         <div style="flex:1">
-          <div class="post-title">${esc(p.title)}</div>
+          <div class="post-title">${titleHtml}</div>
           <div class="post-meta">
             <span class="dots">${dots}</span>
             <span class="badge badge-score">${p.icpScore} signal${p.icpScore !== 1 ? 's' : ''}</span>
@@ -508,7 +573,7 @@ function renderPosts() {
           </div>
         </div>
       </div>
-      ${snippet ? `<div class="post-snippet">${esc(snippet)}</div>` : ''}
+      ${snippetHtml ? `<div class="post-snippet">${snippetHtml}</div>` : ''}
       <a class="post-link" href="${esc(redditUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Open post &rarr;</a>
     </div>`;
   }).join('');
@@ -552,26 +617,19 @@ function updateCount() {
   document.getElementById('openAllBtn').disabled = selectedIds.size === 0;
 }
 
-// Staggered tab opening — browsers block rapid window.open() loops
-async function openSelected() {
+// Synchronous tab opening — must NOT use async/await or setTimeout before window.open()
+// Any delay breaks the browser's trusted-click context and blocks popups
+function openSelected() {
   const toOpen = currentFiltered.filter(p => selectedIds.has(p.id));
   if (!toOpen.length) return;
 
-  const btn = document.getElementById('openAllBtn');
+  toOpen.forEach(p => {
+    window.open('https://reddit.com' + p.permalink, '_blank');
+  });
+
   const msg = document.getElementById('openingMsg');
-  btn.disabled = true;
+  msg.textContent = toOpen.length + ' tab' + (toOpen.length !== 1 ? 's' : '') + ' opened.';
   msg.style.display = 'inline';
-
-  for (let i = 0; i < toOpen.length; i++) {
-    msg.textContent = `Opening ${i + 1} of ${toOpen.length}...`;
-    window.open('https://reddit.com' + toOpen[i].permalink, '_blank');
-    if (i < toOpen.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
-
-  msg.textContent = `Done — ${toOpen.length} tab${toOpen.length !== 1 ? 's' : ''} opened.`;
-  btn.disabled = false;
   setTimeout(() => { msg.style.display = 'none'; }, 3000);
 }
 </script>
