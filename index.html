@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GradSimple Reddit Scout</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e8e8e8; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 800px; margin: 0 auto; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 12px; }
+  .logo { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { color: #FFA23F; }
+  .fetch-btn { background: #1F3F54; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s; }
+  .fetch-btn:hover { background: #18303f; }
+  .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .time-control { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px; padding: 14px 18px; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .time-control label { font-size: 13px; color: #aaa; white-space: nowrap; }
+  .time-control input[type=range] { flex: 1; min-width: 120px; accent-color: #FFA23F; cursor: pointer; }
+  .time-val { font-size: 14px; font-weight: 600; color: #FFA23F; min-width: 80px; text-align: right; white-space: nowrap; }
+  .stats-row { display: flex; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .stat { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 80px; }
+  .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .stat-val { font-size: 24px; font-weight: 600; color: #fff; }
+  .stat-sub { font-size: 11px; color: #555; margin-top: 2px; }
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+  select { background: #1a1d27; color: #e8e8e8; border: 1px solid #2a2d3a; padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; outline: none; }
+  select:focus { border-color: #1F3F54; }
+  .open-all-btn { margin-left: auto; background: #FFA23F; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+  .open-all-btn:hover { background: #e8912e; }
+  .open-all-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: #666; }
+  .select-all-row input { accent-color: #FFA23F; cursor: pointer; width: 15px; height: 15px; }
+  .post-list { display: flex; flex-direction: column; gap: 10px; }
+  .post-card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 12px; padding: 14px 16px; transition: border-color 0.15s; }
+  .post-card.selected { border-color: #FFA23F; }
+  .post-top { display: flex; align-items: flex-start; gap: 10px; }
+  .post-check { margin-top: 3px; accent-color: #FFA23F; width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+  .post-title { font-size: 14px; font-weight: 500; color: #f0f0f0; line-height: 1.45; flex: 1; }
+  .post-meta { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; align-items: center; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .badge-score { background: #0f2e1f; color: #4ade80; border: 1px solid #1a4d30; }
+  .badge-time  { background: #1a2a1a; color: #6ee7b7; border: 1px solid #1f3d2a; }
+  .badge-geo   { background: #0f1f35; color: #60a5fa; border: 1px solid #1a3050; }
+  .badge-edu   { background: #2a1f0a; color: #fbbf24; border: 1px solid #3d2e0f; }
+  .badge-pivot { background: #2a0f0f; color: #f87171; border: 1px solid #3d1515; }
+  .dots { display: inline-flex; gap: 3px; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #2a2d3a; }
+  .dot.on { background: #FFA23F; }
+  .post-snippet { font-size: 13px; color: #666; line-height: 1.6; margin-top: 9px; padding-top: 9px; border-top: 1px solid #22253a; }
+  .post-link { display: inline-block; margin-top: 10px; font-size: 12px; color: #b0cfe0; background: #1F3F5422; border: 1px solid #1F3F5466; padding: 5px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; transition: background 0.15s; }
+  .post-link:hover { background: #1F3F5444; }
+  .empty-state { text-align: center; padding: 4rem 1rem; color: #555; }
+  .empty-state svg { margin: 0 auto 12px; display: block; }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+  .error-msg { background: #2a0f0f; color: #f87171; border: 1px solid #3d1515; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin-bottom: 1rem; }
+  .loading-msg { text-align: center; padding: 3rem 1rem; color: #555; font-size: 14px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff40; border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .excluded-note { font-size: 12px; color: #444; margin-bottom: 1.25rem; line-height: 1.6; padding: 9px 13px; border: 1px solid #22253a; border-radius: 8px; }
+  .excluded-note strong { color: #666; }
+  .opening-msg { font-size: 12px; color: #FFA23F; margin-left: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo">Grad<span>Simple</span> Reddit Scout</div>
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchPosts()">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <path d="M2 8a6 6 0 1 1 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M2 8V5M2 8H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Fetch posts
+    </button>
+  </div>
+
+  <div class="time-control">
+    <label>Look back:</label>
+    <input type="range" id="hoursSlider" min="1" max="24" value="24" step="1" oninput="updateTimeLabel()">
+    <div class="time-val" id="timeVal">24 hours</div>
+  </div>
+
+  <div class="excluded-note">
+    <strong>Auto-excluded:</strong> India, Southeast Asia, East Asia, Middle East. Rant/vent posts, low-effort posts (under 3 sentences), workplace toxicity, manager drama, burnout, and mental health posts.
+  </div>
+
+  <div id="errorMsg" class="error-msg" style="display:none"></div>
+
+  <div class="stats-row" id="statsRow" style="display:none">
+    <div class="stat">
+      <div class="stat-label">Posts scanned</div>
+      <div class="stat-val" id="statTotal">0</div>
+      <div class="stat-sub" id="statTimeLabel">last 24h</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Auto-excluded</div>
+      <div class="stat-val" id="statExcluded">0</div>
+      <div class="stat-sub">filtered out</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">ICP matches</div>
+      <div class="stat-val" id="statMatches">0</div>
+      <div class="stat-sub">for you</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Selected</div>
+      <div class="stat-val" id="statSelected">0</div>
+      <div class="stat-sub">to open</div>
+    </div>
+  </div>
+
+  <div id="filterBar" style="display:none">
+    <div class="filter-bar">
+      <select id="minScore" onchange="renderPosts()">
+        <option value="1">Min: any signal</option>
+        <option value="2">Min: 2+ signals</option>
+        <option value="3">Min: 3+ signals</option>
+      </select>
+      <button class="open-all-btn" id="openAllBtn" onclick="openSelected()" disabled>Open selected in tabs</button>
+      <span class="opening-msg" id="openingMsg" style="display:none"></span>
+    </div>
+    <div class="select-all-row">
+      <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this.checked)">
+      <label for="selectAll">Select all visible</label>
+    </div>
+  </div>
+
+  <div class="post-list" id="postList">
+    <div class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="22" stroke="#2a2d3a" stroke-width="1.5"/>
+        <path d="M16 24h16M24 16v16" stroke="#2a2d3a" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <p>Set your time window, then click "Fetch posts"<br>to find ICP posts from r/careerguidance.</p>
+    </div>
+  </div>
+
+</div>
+<script>
+
+// ── ICP match signals ─────────────────────────────────────────────────────────
+// NOTE: "junior" and "senior" removed — too many false positives with job titles
+// Age signals use explicit patterns only
+const ICP_SIGNALS = {
+  age: [
+    // Reddit age formats: 22F, 22M — matched via regex below
+    // Explicit age phrases:
+    "i'm 16","i'm 17","i'm 18","i'm 19","i'm 20","i'm 21","i'm 22","i'm 23","i'm 24","i'm 25","i'm 26","i'm 27","i'm 28","i'm 29","i'm 30",
+    "im 16","im 17","im 18","im 19","im 20","im 21","im 22","im 23","im 24","im 25","im 26","im 27","im 28","im 29","im 30",
+    "i am 16","i am 17","i am 18","i am 19","i am 20","i am 21","i am 22","i am 23","i am 24","i am 25","i am 26","i am 27","i am 28","i am 29","i am 30",
+    "16 year old","17 year old","18 year old","19 year old","20 year old","21 year old","22 year old","23 year old","24 year old","25 year old","26 year old","27 year old","28 year old","29 year old","30 year old",
+    "turning 20","turning 21","turning 22","turning 23","turning 24","turning 25","turning 26","turning 27","turning 28","turning 29","turning 30",
+    "sophomore","freshman","undergraduate","undergrad",
+    // High school signals — pre-college ICP
+    "high school","highschool","in high school","senior in high school","junior in high school",
+    "graduating high school","about to graduate high school","just graduated high school",
+    "after high school","when i graduate high school","hs senior","hs junior",
+    "applying to college","applying to university","college applications","choosing a college",
+    "what college","which college","should i go to college","thinking about college",
+    "planning to go to college","want to go to college","deciding on a major"
+  ],
+  education: [
+    // Currently in college/university
+    "in college","starting college","going to college","left college","back to college",
+    "returning to college","college student","at university","in university",
+    "starting university","going to university","university student",
+    // Degree types — broad matching
+    "bachelor's","bachelors","bachelor of","bs in","ba in","b.s.","b.a.",
+    "master's","masters","master of","ms in","ma in","m.s.","m.a.",
+    "associate's","associates degree","associate degree","associate of",
+    "my degree","a degree in","get a degree","finish my degree","complete my degree",
+    "have a degree","got my degree","earned my degree","with my degree",
+    // Major / field of study
+    "my major","change my major","undecided major","switching majors","declared my major",
+    "majoring in","double major","studying nursing","studying finance","studying business",
+    "studying engineering","studying cs","studying computer science","studying marketing",
+    "what to major in","what should i major","which major","picking a major",
+    "what to study","what should i study","which degree","what degree",
+    // Community college / night school / non-traditional
+    "community college","cc student","going to cc","at cc","enrolled at cc",
+    "night school","night classes","taking classes at night","evening classes",
+    "online courses","taking online classes","going back to school",
+    "vocational","trade school","certificate program","coding bootcamp","bootcamp",
+    // Academic life signals
+    "graduate school","grad school","transfer student","transferring",
+    "my gpa","gpa is","semester","on campus","off campus","dropped out","drop out",
+    "student loans","tuition","scholarship","financial aid","fafsa",
+    "internship","my internship","summer internship","co-op",
+    // Career path exploration (pre/early college ICP)
+    "what career","which career","what field","career in nursing","career in finance",
+    "career in medicine","career in tech","career in business","career in law",
+    "is nursing worth it","is finance worth it","is cs worth it",
+    "should i study","should i pursue","thinking of pursuing",
+    "want to become a","want to be a","trying to become"
+  ],
+  career_early: [
+    "first job","first full-time","first full time","entry level","entry-level",
+    "new grad","new graduate","recent grad","recent graduate",
+    "just graduated","just finished school","just got my degree",
+    "looking for a job","job searching","job search","job hunting",
+    "no work experience","no experience","limited experience",
+    "starting my career","early career","0-1 year","0-2 year",
+    "first career","first real job","first professional"
+  ],
+  pivot: [
+    "career change","career pivot","career switch","career transition",
+    "switching careers","switching fields","changing careers","changing fields",
+    "want to switch","want to change careers","thinking of switching",
+    "leaving my field","leaving my job to","quit my job to",
+    "starting over","starting fresh","reinventing myself",
+    "different industry","different field","new field","new career"
+  ],
+  struggle: [
+    "feel lost","feeling lost","feel stuck","feeling stuck",
+    "no idea what i want","no idea what to do","no idea where to start",
+    "don't know what i want","don't know what to do","don't know where to start",
+    "what should i do with","what do i do with my","what career should i",
+    "scared about my future","worried about my future","anxious about my career",
+    "behind my peers","behind everyone else","everyone else seems to",
+    "overthinking","second guessing","second-guessing",
+    "paralyzed by","can't decide","can't choose","struggling to decide"
+  ],
+  geo_positive: [
+    "in the us","in the usa","in america","united states","based in the us",
+    "in canada","based in canada","ontario","british columbia","alberta","toronto","vancouver",
+    "in the uk","in england","in britain","united kingdom","based in the uk","london","manchester","scotland",
+    "in australia","based in australia","sydney","melbourne","brisbane"
+  ]
+};
+
+// ── Hard exclude: geography ───────────────────────────────────────────────────
+const GEO_EXCLUDE = [
+  // India — cities, institutions, exams, salary, companies
+  "india","indian","delhi","mumbai","bangalore","bengaluru","hyderabad","chennai","kolkata",
+  "pune","ahmedabad","jaipur","lucknow","chandigarh","noida","gurugram","gurgaon",
+  " iit ","iit-","iim ","iim-"," nit ","nit-","btech","b.tech","mtech","m.tech",
+  "tier 1 college","tier 2 college","tier 3 college","tier-1","tier-2","tier-3",
+  "delhi university","anna university"," vtu "," jntu ",
+  "upsc","ssc cgl","gate exam","cat exam"," jee "," neet ","placement season","campus placement",
+  " lpa "," lakh ","lakhs","crore"," inr ","rs. ","rupee","rupees",
+  "infosys","wipro"," tcs ","cognizant","hcl tech","capgemini india",
+  // Pakistan / Bangladesh / Sri Lanka
+  "pakistan","pakistani","karachi","lahore","islamabad",
+  "dhaka","bangladesh","colombo","sri lanka",
+  // Southeast Asia
+  "philippines","filipino","manila",
+  "malaysia","malaysian","kuala lumpur",
+  "indonesia","indonesian","jakarta",
+  "vietnam","vietnamese"," thailand","thai baht",
+  "myanmar","cambodia","singapore dollar",
+  // East Asia
+  " china ","chinese yuan","beijing","shanghai","shenzhen","guangzhou",
+  " japan ","japanese yen","tokyo","osaka",
+  " korea ","korean won","seoul",
+  "taiwan","hong kong",
+  // Middle East
+  "saudi arabia"," saudi ","riyadh",
+  " uae ","dubai","abu dhabi","dirham",
+  "qatar","doha","kuwait","bahrain"," oman ","riyal",
+  "jordan","amman","lebanon","beirut",
+  "egypt","cairo",
+  " turkey ","turkish lira","istanbul",
+  "iran","iranian","iraq","baghdad",
+  // Africa (not primary market)
+  "nigeria","nigerian","ghana","kenya","nairobi","south africa","johannesburg",
+  // Currency catch-alls
+  "rupees","taka ","peso ","ringgit","baht ","yuan ","yen ","won ","shekel"
+];
+
+// ── Hard exclude: off-topic content ──────────────────────────────────────────
+const TOPIC_EXCLUDE = [
+  // Rant / vent posts
+  "just needed to vent","needed to rant","just venting","just ranting",
+  "rant incoming","rant warning","long rant","rant post",
+  "i hate my","so frustrated with","i'm so angry","i am so angry",
+  "does anyone else hate","this is a rant",
+  // Workplace toxicity / manager drama
+  "toxic manager","toxic boss","toxic workplace","toxic coworker","toxic work",
+  "abusive manager","abusive boss","hostile work environment",
+  "workplace bullying","bully at work",
+  "my manager keeps","my boss keeps","hate my manager","hate my boss",
+  "terrible manager","terrible boss","awful manager","awful boss",
+  "micromanag",
+  // Burnout + mental health (not our lane)
+  "burnout","burnt out","burned out",
+  "clinical depression","on antidepressants","antidepressant",
+  "suicidal","self harm","self-harm","panic attack",
+  "breakdown at work","my therapist said","seeing a therapist","in therapy for",
+  // HR / legal
+  "hr complaint","file a complaint","wrongful termination",
+  "sue my employer","labor board","workplace harassment","sexual harassment",
+  // Late career / retirement
+  "retirement","retiring early","401k","pension fund",
+  "20 years of experience","30 years of experience",
+  "40 years old","45 years old","50 years old","55 years old","60 years old",
+  "40-year-old","45-year-old","50-year-old"
+];
+
+// ── Low-effort / low-quality post detection ───────────────────────────────────
+function isLowEffort(post) {
+  const body = (post.selftext || '').trim();
+  // No body at all (link posts or empty)
+  if (!body || body === '[deleted]' || body === '[removed]') {
+    // Title-only is ok IF title is a real question (long enough)
+    return (post.title || '').length < 60;
+  }
+  // Too short — under ~120 chars is basically one sentence
+  if (body.length < 120) return true;
+  // Count rough sentences by punctuation
+  const sentences = body.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  if (sentences.length < 2) return true;
+  return false;
+}
+
+let allPosts = [];
+let selectedIds = new Set();
+let currentFiltered = [];
+let excludedCount = 0;
+
+function updateTimeLabel() {
+  const h = parseInt(document.getElementById('hoursSlider').value);
+  document.getElementById('timeVal').textContent = h === 1 ? '1 hour' : h + ' hours';
+}
+
+function isExcluded(post) {
+  const text = (' ' + (post.title || '') + ' ' + (post.selftext || '') + ' ').toLowerCase();
+  for (const term of GEO_EXCLUDE) {
+    if (text.includes(term)) return true;
+  }
+  for (const term of TOPIC_EXCLUDE) {
+    if (text.includes(term)) return true;
+  }
+  if (isLowEffort(post)) return true;
+  return false;
+}
+
+function scorePost(post) {
+  const text = (' ' + (post.title || '') + ' ' + (post.selftext || '') + ' ').toLowerCase();
+  let score = 0;
+  const signals = [];
+
+  for (const [cat, words] of Object.entries(ICP_SIGNALS)) {
+    for (const w of words) {
+      if (text.includes(w)) {
+        score++;
+        if (!signals.includes(cat)) signals.push(cat);
+        break;
+      }
+    }
+  }
+
+  // Reddit age formats: 22F, 24M, 23NB — must be at start of post or standalone
+  if (/\b(1[6-9]|2[0-9]|30)\s*[fmFM]\b/.test(post.title + ' ' + (post.selftext || ''))) {
+    score++;
+    if (!signals.includes('age')) signals.push('age');
+  }
+
+  return { score, signals };
+}
+
+function timeAgo(ts) {
+  const diff = Math.floor(Date.now() / 1000) - ts;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  return Math.floor(diff / 3600) + 'h ago';
+}
+
+function esc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function fetchPosts() {
+  const btn = document.getElementById('fetchBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Fetching...';
+  document.getElementById('errorMsg').style.display = 'none';
+  document.getElementById('postList').innerHTML = '<div class="loading-msg">Pulling posts from Reddit...</div>';
+
+  const hours = parseInt(document.getElementById('hoursSlider').value);
+  const cutoff = Math.floor(Date.now() / 1000) - (hours * 3600);
+  let posts = [];
+  let after = '';
+
+  try {
+    for (let page = 0; page < 6; page++) {
+      const url = 'https://www.reddit.com/r/careerguidance/new.json?limit=100' + (after ? '&after=' + after : '');
+      const res = await fetch(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'GradSimpleScout/1.0' } });
+      if (!res.ok) throw new Error('Reddit returned status ' + res.status);
+      const data = await res.json();
+      const children = data.data.children;
+      if (!children.length) break;
+      const batch = children.map(c => c.data);
+      const inWindow = batch.filter(p => p.created_utc >= cutoff);
+      posts = posts.concat(inWindow);
+      if (batch[batch.length - 1].created_utc < cutoff) break;
+      after = data.data.after;
+      if (!after) break;
+    }
+
+    const totalScanned = posts.length;
+    excludedCount = 0;
+
+    allPosts = posts
+      .filter(p => {
+        if (isExcluded(p)) { excludedCount++; return false; }
+        return true;
+      })
+      .map(p => {
+        const { score, signals } = scorePost(p);
+        return { ...p, icpScore: score, icpSignals: signals };
+      })
+      .filter(p => p.icpScore >= 1);
+
+    // Always newest first
+    allPosts.sort((a, b) => b.created_utc - a.created_utc);
+
+    const hLabel = hours === 1 ? 'last 1h' : 'last ' + hours + 'h';
+    document.getElementById('statTotal').textContent = totalScanned;
+    document.getElementById('statTimeLabel').textContent = hLabel;
+    document.getElementById('statExcluded').textContent = excludedCount;
+    document.getElementById('statMatches').textContent = allPosts.length;
+    document.getElementById('statsRow').style.display = 'flex';
+    document.getElementById('filterBar').style.display = 'block';
+    selectedIds.clear();
+    document.getElementById('selectAll').checked = false;
+    renderPosts();
+
+  } catch (e) {
+    document.getElementById('postList').innerHTML = '';
+    document.getElementById('errorMsg').textContent = 'Could not reach Reddit. Error: ' + e.message;
+    document.getElementById('errorMsg').style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 1 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8V5M2 8H5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Refresh';
+}
+
+function renderPosts() {
+  const minScore = parseInt(document.getElementById('minScore').value);
+  currentFiltered = allPosts.filter(p => p.icpScore >= minScore);
+
+  const list = document.getElementById('postList');
+  if (!currentFiltered.length) {
+    list.innerHTML = '<div class="empty-state"><p>No posts match current filters.<br>Try lowering the minimum signal count.</p></div>';
+    return;
+  }
+
+  list.innerHTML = currentFiltered.map(p => {
+    const checked = selectedIds.has(p.id);
+    const snippet = (p.selftext || '').trim().slice(0, 220) + ((p.selftext || '').length > 220 ? '...' : '');
+    const dots = [1,2,3,4,5].map(i => `<span class="dot${p.icpScore >= i ? ' on' : ''}"></span>`).join('');
+    const redditUrl = 'https://reddit.com' + p.permalink;
+
+    return `<div class="post-card${checked ? ' selected' : ''}" id="card-${p.id}">
+      <div class="post-top">
+        <input type="checkbox" class="post-check" ${checked ? 'checked' : ''} onchange="toggleSelect('${esc(p.id)}', this.checked)">
+        <div style="flex:1">
+          <div class="post-title">${esc(p.title)}</div>
+          <div class="post-meta">
+            <span class="dots">${dots}</span>
+            <span class="badge badge-score">${p.icpScore} signal${p.icpScore !== 1 ? 's' : ''}</span>
+            <span class="badge badge-time">${timeAgo(p.created_utc)}</span>
+            ${p.icpSignals.includes('geo_positive') ? '<span class="badge badge-geo">US/CA/UK/AU</span>' : ''}
+            ${(p.icpSignals.includes('age') || p.icpSignals.includes('education')) ? '<span class="badge badge-edu">student/grad</span>' : ''}
+            ${p.icpSignals.includes('pivot') ? '<span class="badge badge-pivot">career pivot</span>' : ''}
+          </div>
+        </div>
+      </div>
+      ${snippet ? `<div class="post-snippet">${esc(snippet)}</div>` : ''}
+      <a class="post-link" href="${esc(redditUrl)}" target="_blank" rel="noopener">Open post &rarr;</a>
+    </div>`;
+  }).join('');
+
+  updateCount();
+}
+
+function toggleSelect(id, checked) {
+  if (checked) selectedIds.add(id);
+  else selectedIds.delete(id);
+  document.getElementById('card-' + id)?.classList.toggle('selected', checked);
+  updateCount();
+}
+
+function toggleSelectAll(checked) {
+  currentFiltered.forEach(p => {
+    if (checked) selectedIds.add(p.id);
+    else selectedIds.delete(p.id);
+    document.getElementById('card-' + p.id)?.classList.toggle('selected', checked);
+  });
+  updateCount();
+}
+
+function updateCount() {
+  document.getElementById('statSelected').textContent = selectedIds.size;
+  document.getElementById('openAllBtn').disabled = selectedIds.size === 0;
+}
+
+// Open tabs with a staggered delay so browsers don't block them as a popup attack
+async function openSelected() {
+  const toOpen = currentFiltered.filter(p => selectedIds.has(p.id));
+  if (!toOpen.length) return;
+
+  const btn = document.getElementById('openAllBtn');
+  const msg = document.getElementById('openingMsg');
+  btn.disabled = true;
+  msg.style.display = 'inline';
+
+  for (let i = 0; i < toOpen.length; i++) {
+    msg.textContent = `Opening ${i + 1} of ${toOpen.length}...`;
+    window.open('https://reddit.com' + toOpen[i].permalink, '_blank');
+    // 400ms gap between tabs — enough for browsers to allow each one
+    if (i < toOpen.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+  }
+
+  msg.textContent = `Done — ${toOpen.length} tab${toOpen.length !== 1 ? 's' : ''} opened.`;
+  btn.disabled = false;
+  setTimeout(() => { msg.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>
