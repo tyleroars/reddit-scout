@@ -441,7 +441,7 @@ async function fetchPosts() {
   let posts = [];
 
   try {
-    const res = await fetch('/api/reddit');
+    const res = await fetch('/api/reddit?cutoff=' + cutoff);
     if (!res.ok) throw new Error('Reddit returned status ' + res.status);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
