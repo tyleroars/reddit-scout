@@ -428,23 +428,16 @@ async function fetchPosts() {
   const hours = parseInt(document.getElementById('hoursSlider').value);
   const cutoff = Math.floor(Date.now() / 1000) - (hours * 3600);
   let posts = [];
-  let after = '';
 
   try {
-    for (let page = 0; page < 6; page++) {
-      const url = '/api/reddit' + (after ? '?after=' + after : '');
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Reddit returned status ' + res.status);
-      const data = await res.json();
-      const children = data.data.children;
-      if (!children.length) break;
-      const batch = children.map(c => c.data);
-      const inWindow = batch.filter(p => p.created_utc >= cutoff);
-      posts = posts.concat(inWindow);
-      if (batch[batch.length - 1].created_utc < cutoff) break;
-      after = data.data.after;
-      if (!after) break;
-    }
+    const res = await fetch('/api/reddit');
+    if (!res.ok) throw new Error('Reddit returned status ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Filter to time window
+    const batch = data.posts || [];
+    posts = batch.filter(p => p.created_utc >= cutoff);
 
     const totalScanned = posts.length;
     excludedCount = 0;
@@ -465,6 +458,15 @@ async function fetchPosts() {
     document.getElementById('filterBar').style.display = 'block';
     selectedIds.clear();
     document.getElementById('selectAll').checked = false;
+
+    // Last fetched timestamp
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    const lf = document.getElementById('lastFetched');
+    lf.textContent = 'Last fetched: ' + dateStr + ' at ' + timeStr;
+    lf.style.display = 'block';
+
     renderPosts();
 
   } catch (e) {
