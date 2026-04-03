@@ -2,83 +2,64 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
-  // RSS feed — not blocked by Reddit's IP restrictions unlike the JSON API
-  const url = 'https://www.reddit.com/r/careerguidance/new/.rss?limit=100';
+  const cutoff = req.query.cutoff ? parseInt(req.query.cutoff) : Math.floor(Date.now() / 1000) - 86400;
+
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Referer': 'https://www.reddit.com/',
+  };
+
+  const allPosts = [];
+  let after = '';
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; GradSimpleScout/1.0)',
-        'Accept': 'application/rss+xml, application/xml, text/xml'
+    for (let page = 0; page < 6; page++) {
+      const url = `https://www.reddit.com/r/careerguidance/new.json?limit=100${after ? '&after=' + after : ''}`;
+
+      const response = await fetch(url, { headers });
+
+      if (!response.ok) {
+        // If first page fails, return the error
+        if (page === 0) {
+          return res.status(response.status).json({ error: 'Reddit returned ' + response.status });
+        }
+        break;
       }
-    });
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'Reddit returned ' + response.status });
+      const data = await response.json();
+      const children = data?.data?.children;
+      if (!children || !children.length) break;
+
+      const batch = children.map(c => c.data);
+
+      // Only keep posts within the time window
+      const inWindow = batch.filter(p => p.created_utc >= cutoff);
+      allPosts.push(...inWindow.map(p => ({
+        id: p.id,
+        title: p.title,
+        selftext: (p.selftext || '').slice(0, 2000),
+        permalink: p.permalink,
+        url: p.url,
+        created_utc: p.created_utc
+      })));
+
+      // Stop if oldest post in batch is before cutoff
+      if (batch[batch.length - 1].created_utc < cutoff) break;
+
+      after = data.data.after;
+      if (!after) break;
+
+      // Small delay between pages to avoid rate limiting
+      await new Promise(r => setTimeout(r, 300));
     }
 
-    const xml = await response.text();
-
-    // Parse RSS XML into a simple array of post objects
-    const posts = [];
-    const itemRegex = /<entry>([\s\S]*?)<\/entry>/g;
-    let match;
-
-    while ((match = itemRegex.exec(xml)) !== null) {
-      const item = match[1];
-
-      const title = decodeXml(extractTag(item, 'title'));
-      const link = extractAttr(item, 'link', 'href') || extractTag(item, 'link');
-      const published = extractTag(item, 'published') || extractTag(item, 'updated');
-      const content = decodeXml(extractTag(item, 'content') || extractTag(item, 'summary') || '');
-      const id = extractTag(item, 'id') || link;
-
-      if (!title || !link) continue;
-
-      // Strip HTML tags from content
-      const bodyText = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-
-      // Parse permalink to get post ID
-      const permalinkMatch = link.match(/comments\/([a-z0-9]+)\//);
-      const postId = permalinkMatch ? permalinkMatch[1] : id;
-      const permalink = link.replace('https://www.reddit.com', '');
-
-      const createdUtc = published ? Math.floor(new Date(published).getTime() / 1000) : Math.floor(Date.now() / 1000);
-
-      posts.push({
-        id: postId,
-        title,
-        selftext: bodyText,
-        permalink: permalink.startsWith('/') ? permalink : '/' + permalink,
-        url: link,
-        created_utc: createdUtc
-      });
-    }
-
-    res.setHeader('Cache-Control', 's-maxage=60');
-    return res.status(200).json({ posts });
+    res.setHeader('Cache-Control', 's-maxage=120');
+    return res.status(200).json({ posts: allPosts });
 
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
-}
-
-function extractTag(xml, tag) {
-  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
-  return match ? match[1].trim() : '';
-}
-
-function extractAttr(xml, tag, attr) {
-  const match = xml.match(new RegExp(`<${tag}[^>]*${attr}="([^"]*)"`, 'i'));
-  return match ? match[1].trim() : '';
-}
-
-function decodeXml(str) {
-  return str
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'");
 }
