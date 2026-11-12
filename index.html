@@ -70,9 +70,10 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .opening-msg { font-size: 12px; color: #FFA23F; margin-left: 8px; }
   .signal-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .signal-pills label { font-size: 13px; color: #aaa; margin-right: 4px; }
-  .pill { padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #2a2d3a; background: #1a1d27; color: #555; transition: all 0.15s; user-select: none; }
+  .signal-pills #signals-label { font-size: 13px; color: #aaa; margin-right: 4px; }
+  .pill { font-family: inherit; line-height: inherit; padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #2a2d3a; background: #1a1d27; color: #555; transition: all 0.15s; user-select: none; }
   .pill:hover { border-color: #FFA23F55; color: #aaa; }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #FFA23F; outline-offset: 3px; }
   .pill.active { background: #FFA23F18; border-color: #FFA23F; color: #FFA23F; }
   .last-fetched { font-size: 12px; color: #555; margin-bottom: 1.25rem; text-align: right; }
   @media (max-width: 520px) { .filter-grid { grid-template-columns: 1fr; } }
@@ -93,8 +94,8 @@
   </div>
 
   <div class="time-control">
-    <label>Look back:</label>
-    <input type="range" id="hoursSlider" min="1" max="24" value="24" step="1" oninput="updateTimeLabel()">
+    <label for="hoursSlider">Look back:</label>
+    <input type="range" id="hoursSlider" aria-describedby="timeVal" min="1" max="24" value="24" step="1" oninput="updateTimeLabel()">
     <div class="time-val" id="timeVal">24 hours</div>
   </div>
 
@@ -164,13 +165,13 @@
 
   <div id="filterBar" style="display:none">
     <div class="filter-bar">
-      <div class="signal-pills">
-        <label>Signals:</label>
-        <span class="pill active" data-sig="1" onclick="togglePill(this)">1</span>
-        <span class="pill active" data-sig="2" onclick="togglePill(this)">2</span>
-        <span class="pill active" data-sig="3" onclick="togglePill(this)">3</span>
-        <span class="pill active" data-sig="4" onclick="togglePill(this)">4</span>
-        <span class="pill active" data-sig="5" onclick="togglePill(this)">5+</span>
+      <div class="signal-pills" role="group" aria-labelledby="signals-label">
+        <span id="signals-label">Signals:</span>
+        <button type="button" class="pill active" data-sig="1" aria-label="1 signal" aria-pressed="true" onclick="togglePill(this)">1</button>
+        <button type="button" class="pill active" data-sig="2" aria-label="2 signals" aria-pressed="true" onclick="togglePill(this)">2</button>
+        <button type="button" class="pill active" data-sig="3" aria-label="3 signals" aria-pressed="true" onclick="togglePill(this)">3</button>
+        <button type="button" class="pill active" data-sig="4" aria-label="4 signals" aria-pressed="true" onclick="togglePill(this)">4</button>
+        <button type="button" class="pill active" data-sig="5" aria-label="5 or more signals" aria-pressed="true" onclick="togglePill(this)">5+</button>
       </div>
       <button class="open-all-btn" id="openAllBtn" onclick="openSelected()" disabled>Open selected in tabs</button>
       <span class="opening-msg" id="openingMsg" style="display:none"></span>
@@ -493,7 +494,8 @@ async function fetchPosts() {
 function togglePill(el) {
   const activePills = document.querySelectorAll('.pill.active');
   if (el.classList.contains('active') && activePills.length === 1) return;
-  el.classList.toggle('active');
+  const isActive = el.classList.toggle('active');
+  el.setAttribute('aria-pressed', String(isActive));
   renderPosts();
 }
 
@@ -522,7 +524,7 @@ function renderPosts() {
 
     return `<div class="post-card${checked ? ' selected' : ''}" id="card-${p.id}" onclick="cardClick(event,'${esc(p.id)}')">
       <div class="post-top">
-        <input type="checkbox" class="post-check" id="chk-${esc(p.id)}" ${checked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleSelect('${esc(p.id)}', this.checked)">
+        <input type="checkbox" class="post-check" id="chk-${esc(p.id)}" aria-label="Select post: ${esc(p.title)}" ${checked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleSelect('${esc(p.id)}', this.checked)">
         <div style="flex:1">
           <div class="post-title">${esc(p.title)}</div>
           <div class="post-meta">
