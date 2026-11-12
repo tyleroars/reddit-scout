@@ -1,0 +1,3 @@
+# Local accessibility test tooling
+.venv/
+__pycache__/
